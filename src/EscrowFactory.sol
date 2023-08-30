@@ -40,7 +40,7 @@ contract EscrowFactory is IEscrowFactory {
         Escrow escrow = new Escrow{salt: salt}(
             price,
             tokenContract,
-            msg.sender, 
+            msg.sender,
             seller,
             arbiter,
             arbiterFee
@@ -74,7 +74,15 @@ contract EscrowFactory is IEscrowFactory {
                             salt,
                             keccak256(
                                 abi.encodePacked(
-                                    byteCode, abi.encode(price, tokenContract, buyer, seller, arbiter, arbiterFee)
+                                    byteCode,
+                                    abi.encode(
+                                        price,
+                                        tokenContract,
+                                        buyer,
+                                        seller,
+                                        arbiter,
+                                        arbiterFee
+                                    )
                                 )
                             )
                         )

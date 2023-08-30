@@ -37,13 +37,17 @@ contract Escrow is IEscrow, ReentrancyGuard {
         address arbiter,
         uint256 arbiterFee
     ) {
-        if (address(tokenContract) == address(0)) revert Escrow__TokenZeroAddress();
+        if (address(tokenContract) == address(0))
+            revert Escrow__TokenZeroAddress();
         if (buyer == address(0)) revert Escrow__BuyerZeroAddress();
         if (seller == address(0)) revert Escrow__SellerZeroAddress();
-        if (arbiterFee >= price) revert Escrow__FeeExceedsPrice(price, arbiterFee);
-        if (tokenContract.balanceOf(address(this)) < price) revert Escrow__MustDeployWithTokenBalance();
-        i_price = price;
+        if (arbiterFee >= price)
+            revert Escrow__FeeExceedsPrice(price, arbiterFee);
         i_tokenContract = tokenContract;
+        if (getContractBalance() < price)
+            revert Escrow__MustDeployWithTokenBalance();
+        i_price = price;
+
         i_buyer = buyer;
         i_seller = seller;
         i_arbiter = arbiter;
@@ -95,19 +99,25 @@ contract Escrow is IEscrow, ReentrancyGuard {
         s_state = State.Confirmed;
         emit Confirmed(i_seller);
 
-        i_tokenContract.safeTransfer(i_seller, i_tokenContract.balanceOf(address(this)));
+        i_tokenContract.safeTransfer(i_seller, getContractBalance());
     }
 
     /// @inheritdoc IEscrow
-    function initiateDispute() external onlyBuyerOrSeller inState(State.Created) {
+    function initiateDispute()
+        external
+        onlyBuyerOrSeller
+        inState(State.Created)
+    {
         if (i_arbiter == address(0)) revert Escrow__DisputeRequiresArbiter();
         s_state = State.Disputed;
         emit Disputed(msg.sender);
     }
 
     /// @inheritdoc IEscrow
-    function resolveDispute(uint256 buyerAward) external onlyArbiter nonReentrant inState(State.Disputed) {
-        uint256 tokenBalance = i_tokenContract.balanceOf(address(this));
+    function resolveDispute(
+        uint256 buyerAward
+    ) external onlyArbiter nonReentrant inState(State.Disputed) {
+        uint256 tokenBalance = getContractBalance();
         uint256 totalFee = buyerAward + i_arbiterFee; // Reverts on overflow
         if (totalFee > tokenBalance) {
             revert Escrow__TotalFeeExceedsBalance(tokenBalance, totalFee);
@@ -122,7 +132,7 @@ contract Escrow is IEscrow, ReentrancyGuard {
         if (i_arbiterFee > 0) {
             i_tokenContract.safeTransfer(i_arbiter, i_arbiterFee);
         }
-        tokenBalance = i_tokenContract.balanceOf(address(this));
+        tokenBalance = getContractBalance();
         if (tokenBalance > 0) {
             i_tokenContract.safeTransfer(i_seller, tokenBalance);
         }
@@ -158,5 +168,9 @@ contract Escrow is IEscrow, ReentrancyGuard {
 
     function getState() external view returns (State) {
         return s_state;
+    }
+
+    function getContractBalance() public view returns (uint256) {
+        return i_tokenContract.balanceOf(address(this));
     }
 }
